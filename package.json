@@ -1,0 +1,33 @@
+{
+    "name": "shapefile2geojson",
+    "version": "1.0.1",
+    "description": "Transform shapefile (shp & dbf) to geojson.",
+    "keywords": [
+        "shapefile",
+        "shp",
+        "dbf",
+        "geojson"
+    ],
+    "homepage": "http://github.com/mathieumast/shapefile2geojson",
+    "author": "mathieumast",
+    "contributors": [
+        "mathieumast"
+    ],
+    "files": [
+        "dist/node/shapefile2geojson.js"
+    ],
+    "main": "dist/node/shapefile2geojson.js",
+    "scripts": {
+        "build:node": "cp src/shapefile2geojson.js dist/node/shapefile2geojson.js",
+        "build:browser": "browserify src/shapefile2geojson.js -t > dist/browser/shapefile2geojson.js",
+        "build": "npm run build:node && npm run build:browser"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/mathieumast/shapefile2geojson.git"
+    },
+    "devDependencies": {
+        "browserify": "^10.2.3"
+    },
+    "license": "MIT"
+}
