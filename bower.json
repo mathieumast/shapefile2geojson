@@ -1,7 +1,7 @@
 {
   "name": "shapefile2geojson",
   "description": "Transform shapefile (shp & dbf) to geojson.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "keywords": [
     "shapefile",
     "shp",
