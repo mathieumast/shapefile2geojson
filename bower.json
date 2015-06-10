@@ -1,20 +1,20 @@
 {
-  "name": "shapefile2geojson",
-  "description": "Transform shapefile (shp & dbf) to geojson.",
-  "version": "1.0.1",
-  "keywords": [
-    "shapefile",
-    "shp",
-    "dbf",
-    "geojson"
-  ],
-  "authors": [
-    "mathieumast"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/mathieumast/shapefile2geojson.git"
-  },
-  "main": "dist/browser/shapefile2geojson.js",
-  "license": "MIT"
+    "name": "shapefile2geojson",
+    "description": "Transform shapefile (shp & dbf) to geojson.",
+    "version": "1.0.2",
+    "keywords": [
+        "shapefile",
+        "shp",
+        "dbf",
+        "geojson"
+    ],
+    "authors": [
+        "mathieumast"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/mathieumast/shapefile2geojson.git"
+    },
+    "main": "dist/browser/shapefile2geojson.js",
+    "license": "MIT"
 }

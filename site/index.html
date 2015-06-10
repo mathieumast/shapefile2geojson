@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Load Zipped Shapefile Example</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css" />
+        <style>
+            html, body {
+                height: 100%;
+                width: 100%;
+            }
+            #map {
+                height: 400px;
+                width: 600px;
+                background-color: #eee;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        <input type="file" onchange="fileNameChanged(this)" />
+
+        <script src="http://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
+        <script src="shapefile2geojson.js"></script>
+
+        <script>
+            var map = L.map('map').setView([47, 2], 6);
+            L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
+
+            var req = new XMLHttpRequest();
+            req.open('GET', 'dep4326.zip', true);
+            req.responseType = 'arraybuffer';
+            req.onreadystatechange = function (e) {
+                loadZipContent(req.response);
+            }
+            req.send();
+
+            function fileNameChanged(e) {
+                var file = e.files[0];
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    console.log(e);
+                    var content = e.target.result;
+                    loadZipContent(content);
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            function loadZipContent(content) {
+                var shp, dbf;
+                var zip = new JSZip();
+                zip.load(content);
+                for (var filename in zip.files) {
+                    if (filename.slice(-4).toLowerCase() === '.shp') {
+                        shp = zip.files[filename];
+                    }
+                    else if (filename.slice(-4).toLowerCase() === '.dbf') {
+                        dbf = zip.files[filename];
+                    }
+                }
+
+                var geojson = shapefile2geojson(shp.asArrayBuffer(), dbf.asArrayBuffer());
+                L.geoJson(geojson).addTo(map);
+            }
+        </script>
+    </body>
+</html>

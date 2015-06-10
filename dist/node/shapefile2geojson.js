@@ -1,3 +1,10 @@
+/**
+ * shapefile2geojson: transform shapefile (shp & dbf) to geojson.
+ * 
+ * Copyright (c) 2015, Mathieu MAST
+ * Licensed under the MIT license.
+ */
+
 'use strict';
 
 function shapefile2geojson(shpBuffer, dbfBuffer) {
@@ -6,8 +13,31 @@ function shapefile2geojson(shpBuffer, dbfBuffer) {
 }
 
 function shapefile2geojsonParser(shpBuffer, dbfBuffer) {
-    var geometries = this.parseShp(shpBuffer);
-    var propertiesArray = this.parseDbf(dbfBuffer);
+    var shpDv, dbfDv;
+    if (typeof DataView === 'function' && shpBuffer instanceof DataView || typeof jDataView === 'function' && shpBuffer instanceof jDataView) {
+        shpDv = shpBuffer;
+    } else if (typeof ArrayBuffer === 'function' && shpBuffer instanceof ArrayBuffer) {
+        shpDv = new DataView(shpBuffer);
+    } else {
+        try {
+            shpDv = new DataView(new Uint8Array(shpBuffer).buffer);
+        } catch (err) {
+            throw new Error('Unsupported shp buffer');
+        }
+    }
+    if (typeof DataView === 'function' && dbfBuffer instanceof DataView || typeof jDataView === 'function' && dbfBuffer instanceof jDataView) {
+        dbfDv = dbfBuffer;
+    } else if (typeof ArrayBuffer === 'function' && dbfBuffer instanceof ArrayBuffer) {
+        dbfDv = new DataView(dbfBuffer);
+    } else {
+        try {
+            dbfDv = new DataView(new Uint8Array(dbfBuffer).buffer);
+        } catch (err) {
+            throw new Error('Unsupported shp buffer');
+        }
+    }  
+    var geometries = this.parseShp(shpDv);
+    var propertiesArray = this.parseDbf(dbfDv);
     var geojson = {}; 
     geojson.type = 'FeatureCollection';
     geojson.features = [];
@@ -24,8 +54,7 @@ function shapefile2geojsonParser(shpBuffer, dbfBuffer) {
     this.geojson = geojson;
 }
 
-shapefile2geojsonParser.prototype.parseShp = function(buffer) {
-    var dv = new DataView(buffer);
+shapefile2geojsonParser.prototype.parseShp = function(dv) {
     var idx = 0;
     var fileCode = dv.getInt32(idx, false);
     idx += 6*4;
@@ -120,7 +149,7 @@ shapefile2geojsonParser.prototype.parseShp = function(buffer) {
                     break;
             }
         } catch(e) {
-            console.log(e);
+            if (console && console.log) console.log(e);
         }
         idx += length * 2;
         features.push(feature);
@@ -128,98 +157,52 @@ shapefile2geojsonParser.prototype.parseShp = function(buffer) {
     return features;
 };
 
-shapefile2geojsonParser.prototype.parseDbf = function(buffer) {
-    var dv = new DataView(buffer);
-    var idx = 0;
-    var version = dv.getInt8(idx, false);
-
-    idx += 1;
-    var year = dv.getUint8(idx) + 1900;
-    idx += 1;
-    var month = dv.getUint8(idx);
-    idx += 1;
-    var day = dv.getUint8(idx);
-    idx += 1;
-
+shapefile2geojsonParser.prototype.parseDbf = function(dv) {
+    var idx = 4;
     var numberOfRecords = dv.getInt32(idx, true);
-    idx += 4;
-    var bytesInHeader = dv.getInt16(idx, true);
-    idx += 2;
-    var bytesInRecord = dv.getInt16(idx, true);
-    idx += 2;
-    //reserved bytes
-    idx += 2;
-    var incompleteTransation = dv.getUint8(idx);
-    idx += 1;
-    var encryptionFlag = dv.getUint8(idx);
-    idx += 1;
-    // skip free record thread for LAN only
-    idx += 4;
-    // reserved for multi-user dBASE in dBASE III+
-    idx += 8;
-    var mdxFlag = dv.getUint8(idx);
-    idx += 1;
-    var languageDriverId = dv.getUint8(idx);
-    idx += 1;
-    // reserved bytes
-    idx += 2;
-
+    idx += 28;
+    var end = false;
     var fields = [];
-    while (true) {
-        var field = {};
-        var nameArray = [];
-        for (var i = 0; i < 10; i++) {
-            var letter = dv.getUint8(idx);
-            if (letter != 0) nameArray.push(String.fromCharCode(letter));
-            idx += 1;
-        }
-        field.name = nameArray.join('');
-        idx += 1;
-        field.type = String.fromCharCode(dv.getUint8(idx));
-        idx += 1;
-        // Skip field data address
-        idx += 4;
-        field.fieldLength = dv.getUint8(idx);
-        idx += 1;
-        //field.decimalCount = dv.getUint8(idx);
-        idx += 1;
-        // Skip reserved bytes multi-user dBASE.
-        idx += 2;
-        field.workAreaId = dv.getUint8(idx);
-        idx += 1;
-        // Skip reserved bytes multi-user dBASE.
-        idx += 2;
-        field.setFieldFlag = dv.getUint8(idx);
-        idx += 1;
-        // Skip reserved bytes.
-        idx += 7;
-        field.indexFieldFlag = dv.getUint8(idx);
-        idx += 1;
-        fields.push(field);
-        var test = dv.getUint8(idx);
-        // Checks for end of field descriptor array. Valid .dbf files will have this
-        // flag.
-        if (dv.getUint8(idx) == 0x0D) break;
-    }
-
-    idx += 1;
-    var propertiesArray = [];
-
-    for (var i = 0; i < numberOfRecords; i++) {
-        var properties = {};
-        idx += 1;
-        for (var j = 0; j < fields.length; j++) {
-            var charString = [];
-            for (var h = 0; h < fields[j].fieldLength; h++) {
-                charString.push(String.fromCharCode(dv.getUint8(idx)));
+    try {
+        while (true) {
+            var field = {};
+            var nameArray = [];
+            for (var i = 0; i < 10; i++) {
+                var letter = dv.getUint8(idx);
+                if (letter != 0) nameArray.push(String.fromCharCode(letter));
                 idx += 1;
             }
-            properties[fields[j].name] = charString.join('').trim();
+            field.name = nameArray.join('');
+            idx += 1;
+            field.type = String.fromCharCode(dv.getUint8(idx));
+            idx += 5;
+            field.fieldLength = dv.getUint8(idx);
+            idx += 16;
+            fields.push(field);
+            if (dv.getUint8(idx) == 0x0D) break;
+        }
+    } catch(err) {
+        if (console && console.log) console.log(err);
+        end = true;
+    }
+    idx += 1;
+    var propertiesArray = [];
+    for (var i = 0; i < numberOfRecords; i++) {
+        var properties = {};
+        if (!end) {
+            idx += 1;
+            for (var j = 0; j < fields.length; j++) {
+                var charString = [];
+                for (var h = 0; h < fields[j].fieldLength; h++) {
+                    charString.push(String.fromCharCode(dv.getUint8(idx)));
+                    idx += 1;
+                }
+                properties[fields[j].name] = charString.join('').trim();
 
+            }
         }
         propertiesArray.push(properties);
     }
-
     return propertiesArray;
 };
 

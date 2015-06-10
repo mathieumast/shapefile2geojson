@@ -1,6 +1,6 @@
 {
     "name": "shapefile2geojson",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Transform shapefile (shp & dbf) to geojson.",
     "keywords": [
         "shapefile",
@@ -18,16 +18,18 @@
     ],
     "main": "dist/node/shapefile2geojson.js",
     "scripts": {
+        "test": "mocha --recursive",
         "build:node": "rm dist/node/shapefile2geojson.js && cp src/shapefile2geojson.js dist/node/shapefile2geojson.js",
         "build:browser": "rm dist/browser/shapefile2geojson.js && browserify src/shapefile2geojson.js -s shapefile2geojson -t > dist/browser/shapefile2geojson.js",
-        "build": "npm run build:node && npm run build:browser"
+        "build": "npm run test && npm run build:node && npm run build:browser && cp dist/browser/shapefile2geojson.js site/shapefile2geojson.js"
     },
     "repository": {
         "type": "git",
         "url": "git://github.com/mathieumast/shapefile2geojson.git"
     },
     "devDependencies": {
-        "browserify": "^10.2.3"
+        "browserify": "^10.2.3",
+        "mocha": "^2.2.5"
     },
     "license": "MIT"
 }
