@@ -18,7 +18,7 @@
     ],
     "main": "dist/node/shapefile2geojson.js",
     "bin": {
-        "shapefile2geojson": "dist/node/cli.js"
+        "shapefile2geojson": "./dist/node/cli.js"
     },
     "scripts": {
         "test": "mocha --recursive",
