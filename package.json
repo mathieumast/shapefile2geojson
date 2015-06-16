@@ -1,6 +1,6 @@
 {
     "name": "shapefile2geojson",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Transform shapefile (shp & dbf) to geojson.",
     "keywords": [
         "shapefile",
@@ -12,9 +12,6 @@
     "author": "mathieumast",
     "contributors": [
         "mathieumast"
-    ],
-    "files": [
-        "dist/node/shapefile2geojson.js"
     ],
     "main": "dist/node/shapefile2geojson.js",
     "bin": {
