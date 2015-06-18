@@ -8,12 +8,27 @@
 
 'use strict';
 
-function shapefile2geojson(shpBuffer, dbfBuffer) {
-  var parser = new shapefile2geojsonParser(shpBuffer, dbfBuffer);
-  return parser.geojson;
+if (typeof String.prototype.trim !== 'function') {
+  String.prototype.trim = function() {
+    return this.replace(/^\s+|\s+$/g, '');
+  }
 }
 
-function createDv(buffer) {
+function shapefile2geojson(shpBuffer, dbfBuffer) {
+  if (shpBuffer && dbfBuffer) {
+    var parser = new shapefile2geojsonParser();
+    parser.parseShp(shpBuffer);
+    parser.parseDbf(dbfBuffer);
+    parser.merge();
+    return parser.geojson;
+  } else {
+    return new shapefile2geojsonParser();
+  }
+}
+
+function shapefile2geojsonParser() {}
+
+shapefile2geojsonParser.prototype.createDv = function(buffer) {
   if (typeof DataView === 'function' && buffer instanceof DataView || typeof jDataView === 'function' && buffer instanceof jDataView) {
     return buffer;
   } else {
@@ -31,28 +46,27 @@ function createDv(buffer) {
       throw new Error('Unsupported buffer');
     }
   }
-}
+};
 
-function shapefile2geojsonParser(shpBuffer, dbfBuffer) {
-  var geometries = this.parseShp(createDv(shpBuffer));
-  var propertiesArray = this.parseDbf(createDv(dbfBuffer));
+shapefile2geojsonParser.prototype.merge = function() {
   var geojson = {};
   geojson.type = 'FeatureCollection';
   geojson.features = [];
   var i = 0;
-  var len = (geometries.length < propertiesArray.length) ? geometries.length : propertiesArray.length;
+  var len = (this.features.length < this.propertiesArray.length) ? this.features.length : this.propertiesArray.length;
   while (i < len) {
     geojson.features.push({
       'type': 'Feature',
-      'geometry': geometries[i],
-      'properties': propertiesArray[i]
+      'geometry': this.features[i],
+      'properties': this.propertiesArray[i]
     });
     i++;
   }
   this.geojson = geojson;
-}
+};
 
-shapefile2geojsonParser.prototype.parseShp = function(dv) {
+shapefile2geojsonParser.prototype.parseShp = function(buffer) {
+  var dv = this.createDv(buffer);
   var idx = 0;
   var fileCode = dv.getInt32(idx, false);
   idx += 6 * 4;
@@ -146,16 +160,15 @@ shapefile2geojsonParser.prototype.parseShp = function(dv) {
           }
           break;
       }
-    } catch (e) {
-      if (console && console.log) console.log(e);
-    }
+    } catch (e) {}
     idx += length * 2;
     features.push(feature);
   }
-  return features;
+  this.features = features;
 };
 
-shapefile2geojsonParser.prototype.parseDbf = function(dv) {
+shapefile2geojsonParser.prototype.parseDbf = function(buffer) {
+  var dv = this.createDv(buffer);
   var idx = 4;
   var numberOfRecords = dv.getInt32(idx, true);
   idx += 28;
@@ -180,7 +193,6 @@ shapefile2geojsonParser.prototype.parseDbf = function(dv) {
       if (dv.getUint8(idx) == 0x0D) break;
     }
   } catch (err) {
-    if (console && console.log) console.log(err);
     end = true;
   }
   idx += 1;
@@ -188,20 +200,23 @@ shapefile2geojsonParser.prototype.parseDbf = function(dv) {
   for (var i = 0; i < numberOfRecords; i++) {
     var properties = {};
     if (!end) {
-      idx += 1;
-      for (var j = 0; j < fields.length; j++) {
-        var charString = [];
-        for (var h = 0; h < fields[j].fieldLength; h++) {
-          charString.push(String.fromCharCode(dv.getUint8(idx)));
-          idx += 1;
+      try {
+        idx += 1;
+        for (var j = 0; j < fields.length; j++) {
+          var charString = [];
+          for (var h = 0; h < fields[j].fieldLength; h++) {
+            charString.push(String.fromCharCode(dv.getUint8(idx)));
+            idx += 1;
+          }
+          properties[fields[j].name] = charString.join('').trim();
         }
-        properties[fields[j].name] = charString.join('').trim();
-
+      } catch (err) {
+        end = true;
       }
     }
     propertiesArray.push(properties);
   }
-  return propertiesArray;
+  this.propertiesArray = propertiesArray;
 };
 
 module.exports = shapefile2geojson;

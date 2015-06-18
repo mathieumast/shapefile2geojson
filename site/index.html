@@ -6,7 +6,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="x-ua-compatible" content="chrome=1">
-  <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css" />
+  <link rel="stylesheet" href="leaflet.css" />
   <style>
     html,
     body {
@@ -20,14 +20,36 @@
       background-color: #eee;
     }
   </style>
-  <script src="http://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
-  <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+  <script src="leaflet.js"></script>
   <script src="jdataview.js"></script>
   <script src="shapefile2geojson.js"></script>
   <script>
     var map;
+    var shpContent, dbfContent;
 
-    function loadFile(filename, callback) {
+    function loadLocalFile(file, callback) {
+      if (typeof FileReader === 'function') {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var content = e.target.result;
+          callback.call(this, content);
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        var reader = new ActiveXObject("Scripting.FileSystemObject");
+        var f = reader.OpenTextFile(file, 1, false, true);
+        var content = [];
+        while (f.AtEndOfStream !== true) {
+          var c = f.read(1).charCodeAt(0);
+          content.push(c & 0xff);
+          content.push((c >> 8) & 0xff);
+        }
+        f.Close();
+        callback.call(this, content);
+      }
+    }
+
+    function loadRemoteFile(filename, callback) {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', filename, true);
       // new browsers (XMLHttpRequest2-compliant)
@@ -42,17 +64,53 @@
         xhr.setRequestHeader('Accept-Charset', 'x-user-defined');
       }
       xhr.onreadystatechange = function() {
-          if (xhr.readyState == 4) {
-            if (this.status == 0 || this.status == 200) {
-              if ('response' in this) {
-                callback.call(this, xhr.response);
-              } else if ('responseBody' in this) {
-                callback.call(this, new VBArray(this.responseBody).toArray());
-              }
+        if (xhr.readyState == 4) {
+          if (this.status == 0 || this.status == 200) {
+            if ('response' in this) {
+              callback.call(this, xhr.response);
+            } else if ('responseBody' in this) {
+              callback.call(this, new VBArray(this.responseBody).toArray());
             }
           }
         }
-        xhr.send();
+      }
+      xhr.send();
+    }
+
+    function shpFilenameChanged(e) {
+      if ('files' in e) {
+        loadLocalFile(e.files[0], function(content) {
+          shpContent = content;
+          if (shpContent && dbfContent) {
+            loadShapefile(shpContent, dbfContent);
+          }
+        });
+      } else if ('value' in e) {
+        loadLocalFile(e.value, function(content) {
+          shpContent = content;
+          if (shpContent && dbfContent) {
+            loadShapefile(shpContent, dbfContent);
+          }
+        });
+      }
+    }
+
+    function dbfFilenameChanged(e) {
+      if ('files' in e) {
+        loadLocalFile(e.files[0], function(content) {
+          dbfContent = content;
+          if (shpContent && dbfContent) {
+            loadShapefile(shpContent, dbfContent);
+          }
+        });
+      } else if ('value' in e) {
+        loadLocalFile(e.value, function(content) {
+          dbfContent = content;
+          if (shpContent && dbfContent) {
+            loadShapefile(shpContent, dbfContent);
+          }
+        });
+      }
     }
 
     function loadShapefile(shp, dbf) {
@@ -64,9 +122,9 @@
       map = L.map('map').setView([47, 2], 6);
       L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
 
-      loadFile('dep4326.shp', function(content) {
+      loadRemoteFile('dep4326.shp', function(content) {
         var shp = content;
-        loadFile('dep4326.dbf', function(content) {
+        loadRemoteFile('dep4326.dbf', function(content) {
           var dbf = content;
           loadShapefile(shp, dbf);
         });
@@ -76,6 +134,10 @@
 </head>
 
 <body>
+  <span>Select shp file:</span>
+  <input id="inputFileShp" type="file" onchange="shpFilenameChanged(this)" />
+  <span>Select dbf file:</span>
+  <input type="file" onchange="dbfFilenameChanged(this)" />
   <div id="map"></div>
 </body>
 
