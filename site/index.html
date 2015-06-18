@@ -1,69 +1,82 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Load Zipped Shapefile Example</title>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css" />
-        <style>
-            html, body {
-                height: 100%;
-                width: 100%;
+
+<head>
+  <title>Load Zipped Shapefile Example</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="x-ua-compatible" content="chrome=1">
+  <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css" />
+  <style>
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+    }
+
+    #map {
+      height: 400px;
+      width: 600px;
+      background-color: #eee;
+    }
+  </style>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
+  <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+  <script src="jdataview.js"></script>
+  <script src="shapefile2geojson.js"></script>
+  <script>
+    var map;
+
+    function loadFile(filename, callback) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', filename, true);
+      // new browsers (XMLHttpRequest2-compliant)
+      if ('responseType' in xhr) {
+        xhr.responseType = 'arraybuffer';
+      }
+      // old browsers (XMLHttpRequest-compliant)
+      if ('overrideMimeType' in xhr) {
+        xhr.overrideMimeType('text/plain; charset=x-user-defined');
+      }
+      if ('setRequestHeader' in xhr) {
+        xhr.setRequestHeader('Accept-Charset', 'x-user-defined');
+      }
+      xhr.onreadystatechange = function() {
+          if (xhr.readyState == 4) {
+            if (this.status == 0 || this.status == 200) {
+              if ('response' in this) {
+                callback.call(this, xhr.response);
+              } else if ('responseBody' in this) {
+                callback.call(this, new VBArray(this.responseBody).toArray());
+              }
             }
-            #map {
-                height: 400px;
-                width: 600px;
-                background-color: #eee;
-            }
-        </style>
-    </head>
-    <body>
-        <div id="map"></div>
-        <input type="file" onchange="fileNameChanged(this)" />
+          }
+        }
+        xhr.send();
+    }
 
-        <script src="http://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script>
-        <script src="shapefile2geojson.js"></script>
+    function loadShapefile(shp, dbf) {
+      var geojson = shapefile2geojson(shp, dbf);
+      L.geoJson(geojson).addTo(map);
+    }
 
-        <script>
-            var map = L.map('map').setView([47, 2], 6);
-            L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
+    window.onload = function() {
+      map = L.map('map').setView([47, 2], 6);
+      L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
 
-            var req = new XMLHttpRequest();
-            req.open('GET', 'dep4326.zip', true);
-            req.responseType = 'arraybuffer';
-            req.onreadystatechange = function (e) {
-                loadZipContent(req.response);
-            }
-            req.send();
+      loadFile('dep4326.shp', function(content) {
+        var shp = content;
+        loadFile('dep4326.dbf', function(content) {
+          var dbf = content;
+          loadShapefile(shp, dbf);
+        });
+      });
+    }
+  </script>
+</head>
 
-            function fileNameChanged(e) {
-                var file = e.files[0];
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    console.log(e);
-                    var content = e.target.result;
-                    loadZipContent(content);
-                };
-                reader.readAsArrayBuffer(file);
-            }
+<body>
+  <div id="map"></div>
+</body>
 
-            function loadZipContent(content) {
-                var shp, dbf;
-                var zip = new JSZip();
-                zip.load(content);
-                for (var filename in zip.files) {
-                    if (filename.slice(-4).toLowerCase() === '.shp') {
-                        shp = zip.files[filename];
-                    }
-                    else if (filename.slice(-4).toLowerCase() === '.dbf') {
-                        dbf = zip.files[filename];
-                    }
-                }
-
-                var geojson = shapefile2geojson(shp.asArrayBuffer(), dbf.asArrayBuffer());
-                L.geoJson(geojson).addTo(map);
-            }
-        </script>
-    </body>
 </html>
