@@ -7,33 +7,55 @@
 
 'use strict';
 
+var defaultOptions = {
+  // Trim dbf value
+  trim: true,
+  // Decode function from iconv-lite (type: function decode(buffer: Buffer, encoding: string, options?: Options): string)
+  // iconv-lite must also be add in global with name iconvLite
+  iconvLiteDecodeFn: (typeof iconvLite !== 'undefined' && typeof iconvLite.decode === 'function') ? iconvLite.decode : null,
+  // Input encoding for iconvLiteDecodeFn
+  inputEncoding: null,
+  // jDataView polyfill 
+  // jDataView must also be add in global with name jDataView
+  jDataView: (typeof jDataView === 'function') ? jDataView : null
+}
+
 if (typeof String.prototype.trim !== 'function') {
-  String.prototype.trim = function() {
+  String.prototype.trim = function () {
     return this.replace(/^\s+|\s+$/g, '');
   }
 }
 
-function shapefile2geojson(shpBuffer, dbfBuffer) {
+function shapefile2geojson(shpBuffer, dbfBuffer, options) {
   if (shpBuffer && dbfBuffer) {
-    var parser = new shapefile2geojsonParser();
+    var parser = new shapefile2geojsonParser(options);
     parser.parseShp(shpBuffer);
     parser.parseDbf(dbfBuffer);
     parser.merge();
     return parser.geojson;
   } else {
-    return new shapefile2geojsonParser();
+    return new shapefile2geojsonParser(options);
   }
 }
 
-function shapefile2geojsonParser() {}
+function shapefile2geojsonParser(inOptions) {
+  this.options = defaultOptions;
+  if (inOptions) {
+    for (var key in inOptions) {
+      if (hasOwnProperty.call(inOptions, key)) {
+        this.options[key] = inOptions[key];
+      }
+    }
+  }
+}
 
-shapefile2geojsonParser.prototype.createDv = function(buffer) {
-  if (typeof DataView === 'function' && buffer instanceof DataView || typeof jDataView === 'function' && buffer instanceof jDataView) {
+shapefile2geojsonParser.prototype.createDv = function (buffer) {
+  if (typeof DataView === 'function' && buffer instanceof DataView || typeof this.options.jDataView === 'function' && buffer instanceof this.options.jDataView) {
     return buffer;
   } else {
     try {
-      if (typeof jDataView === 'function') {
-        return new jDataView(buffer);
+      if (typeof this.options.jDataView === 'function') {
+        return new this.options.jDataView(buffer);
       } else {
         if (typeof ArrayBuffer === 'function' && buffer instanceof ArrayBuffer) {
           return new DataView(buffer);
@@ -42,12 +64,12 @@ shapefile2geojsonParser.prototype.createDv = function(buffer) {
         }
       }
     } catch (err) {
-      throw new Error('Unsupported buffer');
+      throw new Error('Unsupported buffer: use jDataView polyfill');
     }
   }
 };
 
-shapefile2geojsonParser.prototype.merge = function() {
+shapefile2geojsonParser.prototype.merge = function () {
   var geojson = {};
   geojson.type = 'FeatureCollection';
   geojson.features = [];
@@ -64,7 +86,7 @@ shapefile2geojsonParser.prototype.merge = function() {
   this.geojson = geojson;
 };
 
-shapefile2geojsonParser.prototype.parseShp = function(buffer) {
+shapefile2geojsonParser.prototype.parseShp = function (buffer) {
   var dv = this.createDv(buffer);
   var idx = 0;
   var fileCode = dv.getInt32(idx, false);
@@ -159,14 +181,14 @@ shapefile2geojsonParser.prototype.parseShp = function(buffer) {
           }
           break;
       }
-    } catch (e) {}
+    } catch (e) { }
     idx += length * 2;
     features.push(feature);
   }
   this.features = features;
 };
 
-shapefile2geojsonParser.prototype.parseDbf = function(buffer) {
+shapefile2geojsonParser.prototype.parseDbf = function (buffer) {
   var dv = this.createDv(buffer);
   var idx = 4;
   var numberOfRecords = dv.getInt32(idx, true);
@@ -202,12 +224,26 @@ shapefile2geojsonParser.prototype.parseDbf = function(buffer) {
       try {
         idx += 1;
         for (var j = 0; j < fields.length; j++) {
-          var charString = [];
-          for (var h = 0; h < fields[j].fieldLength; h++) {
-            charString.push(String.fromCharCode(dv.getUint8(idx)));
-            idx += 1;
+          var str = "";
+          if (this.options.iconvLiteDecodeFn && this.options.inputEncoding) {
+            var buffer = [];
+            for (var h = 0; h < fields[j].fieldLength; h++) {
+              buffer.push(dv.getUint8(idx));
+              idx += 1;
+            }
+            str = this.options.iconvLiteDecodeFn(buffer, this.options.inputEncoding)
+          } else {
+            var charString = [];
+            for (var h = 0; h < fields[j].fieldLength; h++) {
+              charString.push(String.fromCharCode(dv.getUint8(idx)));
+              idx += 1;
+            }
+            var str = charString.join('');
           }
-          properties[fields[j].name] = charString.join('').trim();
+          if (this.options.trim) {
+            str = str.trim();
+          }
+          properties[fields[j].name] = str;
         }
       } catch (err) {
         end = true;

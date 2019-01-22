@@ -22,15 +22,16 @@
   </style>
   <script src="leaflet.js"></script>
   <script src="jdataview.js"></script>
+  <script src="iconv-lite.js"></script>
   <script src="shapefile2geojson.js"></script>
   <script>
     var map;
-    var shpContent, dbfContent;
+    var shpContent, dbfContent, encoding;
 
     function loadLocalFile(file, callback) {
       if (typeof FileReader === 'function') {
         var reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
           var content = e.target.result;
           callback.call(this, content);
         };
@@ -63,7 +64,7 @@
       if ('setRequestHeader' in xhr) {
         xhr.setRequestHeader('Accept-Charset', 'x-user-defined');
       }
-      xhr.onreadystatechange = function() {
+      xhr.onreadystatechange = function () {
         if (xhr.readyState == 4) {
           if (this.status == 0 || this.status == 200) {
             if ('response' in this) {
@@ -79,52 +80,52 @@
 
     function shpFilenameChanged(e) {
       if ('files' in e) {
-        loadLocalFile(e.files[0], function(content) {
+        loadLocalFile(e.files[0], function (content) {
           shpContent = content;
-          if (shpContent && dbfContent) {
-            loadShapefile(shpContent, dbfContent);
-          }
         });
       } else if ('value' in e) {
-        loadLocalFile(e.value, function(content) {
+        loadLocalFile(e.value, function (content) {
           shpContent = content;
-          if (shpContent && dbfContent) {
-            loadShapefile(shpContent, dbfContent);
-          }
         });
       }
     }
 
     function dbfFilenameChanged(e) {
       if ('files' in e) {
-        loadLocalFile(e.files[0], function(content) {
+        loadLocalFile(e.files[0], function (content) {
           dbfContent = content;
-          if (shpContent && dbfContent) {
-            loadShapefile(shpContent, dbfContent);
-          }
         });
       } else if ('value' in e) {
-        loadLocalFile(e.value, function(content) {
+        loadLocalFile(e.value, function (content) {
           dbfContent = content;
-          if (shpContent && dbfContent) {
-            loadShapefile(shpContent, dbfContent);
-          }
         });
       }
     }
 
-    function loadShapefile(shp, dbf) {
-      var geojson = shapefile2geojson(shp, dbf);
+    function encodingChanged(e) {
+      encoding = e.value;
+    }
+
+    function load() {
+      console.log(shpContent, dbfContent, encoding);
+      if (shpContent && dbfContent) {
+        loadShapefile(shpContent, dbfContent, encoding);
+      }
+    }
+
+    function loadShapefile(shp, dbf, inputEncoding) {
+      var geojson = shapefile2geojson(shp, dbf, { inputEncoding: inputEncoding });
+      console.log(geojson);
       L.geoJson(geojson).addTo(map);
     }
 
-    window.onload = function() {
+    window.onload = function () {
       map = L.map('map').setView([47, 2], 6);
       L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
 
-      loadRemoteFile('dep4326.shp', function(content) {
+      loadRemoteFile('dep4326.shp', function (content) {
         var shp = content;
-        loadRemoteFile('dep4326.dbf', function(content) {
+        loadRemoteFile('dep4326.dbf', function (content) {
           var dbf = content;
           loadShapefile(shp, dbf);
         });
@@ -138,6 +139,9 @@
   <input id="inputFileShp" type="file" onchange="shpFilenameChanged(this)" />
   <span>Select dbf file:</span>
   <input type="file" onchange="dbfFilenameChanged(this)" />
+  <span>Encoding:</span>
+  <input type="text" onclick="encodingChanged(this)" />
+  <button onclick="load()">Load</button>
   <div id="map"></div>
 </body>
 

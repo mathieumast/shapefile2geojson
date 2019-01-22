@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.shapefile2geojson = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.shapefile2geojson = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 /**
  * shapefile2geojson: transform shapefile (shp & dbf) to geojson.
  *
@@ -8,33 +8,55 @@
 
 'use strict';
 
+var defaultOptions = {
+  // Trim dbf value
+  trim: true,
+  // Decode function from iconv-lite (type: function decode(buffer: Buffer, encoding: string, options?: Options): string)
+  // iconv-lite must also be add in global with name iconvLite
+  iconvLiteDecodeFn: (typeof iconvLite !== 'undefined' && typeof iconvLite.decode === 'function') ? iconvLite.decode : null,
+  // Input encoding for iconvLiteDecodeFn
+  inputEncoding: null,
+  // jDataView polyfill 
+  // jDataView must also be add in global with name jDataView
+  jDataView: (typeof jDataView === 'function') ? jDataView : null
+}
+
 if (typeof String.prototype.trim !== 'function') {
-  String.prototype.trim = function() {
+  String.prototype.trim = function () {
     return this.replace(/^\s+|\s+$/g, '');
   }
 }
 
-function shapefile2geojson(shpBuffer, dbfBuffer) {
+function shapefile2geojson(shpBuffer, dbfBuffer, options) {
   if (shpBuffer && dbfBuffer) {
-    var parser = new shapefile2geojsonParser();
+    var parser = new shapefile2geojsonParser(options);
     parser.parseShp(shpBuffer);
     parser.parseDbf(dbfBuffer);
     parser.merge();
     return parser.geojson;
   } else {
-    return new shapefile2geojsonParser();
+    return new shapefile2geojsonParser(options);
   }
 }
 
-function shapefile2geojsonParser() {}
+function shapefile2geojsonParser(inOptions) {
+  this.options = defaultOptions;
+  if (inOptions) {
+    for (var key in inOptions) {
+      if (hasOwnProperty.call(inOptions, key)) {
+        this.options[key] = inOptions[key];
+      }
+    }
+  }
+}
 
-shapefile2geojsonParser.prototype.createDv = function(buffer) {
-  if (typeof DataView === 'function' && buffer instanceof DataView || typeof jDataView === 'function' && buffer instanceof jDataView) {
+shapefile2geojsonParser.prototype.createDv = function (buffer) {
+  if (typeof DataView === 'function' && buffer instanceof DataView || typeof this.options.jDataView === 'function' && buffer instanceof this.options.jDataView) {
     return buffer;
   } else {
     try {
-      if (typeof jDataView === 'function') {
-        return new jDataView(buffer);
+      if (typeof this.options.jDataView === 'function') {
+        return new this.options.jDataView(buffer);
       } else {
         if (typeof ArrayBuffer === 'function' && buffer instanceof ArrayBuffer) {
           return new DataView(buffer);
@@ -43,12 +65,12 @@ shapefile2geojsonParser.prototype.createDv = function(buffer) {
         }
       }
     } catch (err) {
-      throw new Error('Unsupported buffer');
+      throw new Error('Unsupported buffer: use jDataView polyfill');
     }
   }
 };
 
-shapefile2geojsonParser.prototype.merge = function() {
+shapefile2geojsonParser.prototype.merge = function () {
   var geojson = {};
   geojson.type = 'FeatureCollection';
   geojson.features = [];
@@ -65,7 +87,7 @@ shapefile2geojsonParser.prototype.merge = function() {
   this.geojson = geojson;
 };
 
-shapefile2geojsonParser.prototype.parseShp = function(buffer) {
+shapefile2geojsonParser.prototype.parseShp = function (buffer) {
   var dv = this.createDv(buffer);
   var idx = 0;
   var fileCode = dv.getInt32(idx, false);
@@ -160,14 +182,14 @@ shapefile2geojsonParser.prototype.parseShp = function(buffer) {
           }
           break;
       }
-    } catch (e) {}
+    } catch (e) { }
     idx += length * 2;
     features.push(feature);
   }
   this.features = features;
 };
 
-shapefile2geojsonParser.prototype.parseDbf = function(buffer) {
+shapefile2geojsonParser.prototype.parseDbf = function (buffer) {
   var dv = this.createDv(buffer);
   var idx = 4;
   var numberOfRecords = dv.getInt32(idx, true);
@@ -203,12 +225,26 @@ shapefile2geojsonParser.prototype.parseDbf = function(buffer) {
       try {
         idx += 1;
         for (var j = 0; j < fields.length; j++) {
-          var charString = [];
-          for (var h = 0; h < fields[j].fieldLength; h++) {
-            charString.push(String.fromCharCode(dv.getUint8(idx)));
-            idx += 1;
+          var str = "";
+          if (this.options.iconvLiteDecodeFn && this.options.inputEncoding) {
+            var buffer = [];
+            for (var h = 0; h < fields[j].fieldLength; h++) {
+              buffer.push(dv.getUint8(idx));
+              idx += 1;
+            }
+            str = this.options.iconvLiteDecodeFn(buffer, this.options.inputEncoding)
+          } else {
+            var charString = [];
+            for (var h = 0; h < fields[j].fieldLength; h++) {
+              charString.push(String.fromCharCode(dv.getUint8(idx)));
+              idx += 1;
+            }
+            var str = charString.join('');
           }
-          properties[fields[j].name] = charString.join('').trim();
+          if (this.options.trim) {
+            str = str.trim();
+          }
+          properties[fields[j].name] = str;
         }
       } catch (err) {
         end = true;

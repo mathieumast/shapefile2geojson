@@ -1,6 +1,6 @@
 {
     "name": "shapefile2geojson",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "Transform shapefile (shp & dbf) to geojson.",
     "keywords": [
         "shapefile",
@@ -21,18 +21,20 @@
         "test": "mocha --recursive",
         "build:node": "rm -f dist/node/shapefile2geojson.js && cp src/shapefile2geojson.js dist/node/shapefile2geojson.js && rm -f dist/node/cli.js && cp src/cli.js dist/node/cli.js ",
         "build:browser": "rm -f dist/browser/shapefile2geojson.js && browserify src/shapefile2geojson.js -s shapefile2geojson -t > dist/browser/shapefile2geojson.js",
-        "build": "npm run test && npm run build:node && npm run build:browser && cp dist/browser/shapefile2geojson.js site/shapefile2geojson.js"
+        "build:iconv-lite-browser": "rm -f dist/browser/iconv-lite.js && browserify node_modules/iconv-lite/lib/index.js -s iconv-lite -t > dist/browser/iconv-lite.js",
+        "build": "npm run test && npm run build:node && npm run build:browser && npm run build:iconv-lite-browser && cp dist/browser/shapefile2geojson.js site/shapefile2geojson.js && cp dist/browser/iconv-lite.js site/iconv-lite.js"
     },
     "repository": {
         "type": "git",
         "url": "git://github.com/mathieumast/shapefile2geojson.git"
     },
     "dependencies": {
-        "commander": "^2.8.1"
     },
     "devDependencies": {
-        "browserify": "^10.2.3",
-        "mocha": "^2.2.5"
+        "browserify": "^16.2.3",
+        "commander": "^2.19.0",
+        "iconv-lite": "^0.4.24",
+        "mocha": "^5.2.0"
     },
     "license": "MIT"
 }
