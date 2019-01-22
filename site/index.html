@@ -105,9 +105,7 @@
     function encodingChanged(e) {
       encoding = e.value;
     }
-
     function load() {
-      console.log(shpContent, dbfContent, encoding);
       if (shpContent && dbfContent) {
         loadShapefile(shpContent, dbfContent, encoding);
       }
@@ -115,7 +113,9 @@
 
     function loadShapefile(shp, dbf, inputEncoding) {
       var geojson = shapefile2geojson(shp, dbf, { inputEncoding: inputEncoding });
-      console.log(geojson);
+      if (typeof console !== 'undefined' && typeof console.log === 'function') {
+        console.log(geojson);
+      }
       L.geoJson(geojson).addTo(map);
     }
 
@@ -140,7 +140,7 @@
   <span>Select dbf file:</span>
   <input type="file" onchange="dbfFilenameChanged(this)" />
   <span>Encoding:</span>
-  <input type="text" onclick="encodingChanged(this)" />
+  <input type="text" onchange="encodingChanged(this)" />
   <button onclick="load()">Load</button>
   <div id="map"></div>
 </body>
